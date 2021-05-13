@@ -348,3 +348,9 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Ansible Inventory - ignored for security reasons
+inventory.yaml
+
+# VSCode directory
+.vscode
