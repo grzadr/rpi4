@@ -1,0 +1,3 @@
+[submodule "setup/configs"]
+	path = setup/configs
+	url = git@github.com:grzadr/linux_configs.git
