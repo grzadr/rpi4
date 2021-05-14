@@ -1,0 +1,118 @@
+---
+- hosts: all
+  name: Basic Raspberry Pi setup
+  tasks:
+    - name: Set up baisc facts
+      set_fact:
+        home_dir: "{{ ansible_env['HOME'] }}"
+        distro: "{{ ansible_distribution_release }}"
+    
+    - name: Read list of files to install with apt
+      set_fact:
+        apt_list: "{{ item.split('\n') }}"
+      with_file: "{{ playbook_dir }}/apt.list"
+    
+    - name: Copy rc files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ home_dir }}/"
+      with_fileglob: "{{ playbook_dir }}/configs/*rc"
+      when: yes
+
+    - name: Copy bash source files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ home_dir }}/"
+      with_fileglob: "{{ playbook_dir }}/configs/source*"
+      when: yes
+
+    - name: Find file to add to .bashrc
+      find:
+        path: "{{ home_dir }}"
+        pattern: "source_*"
+      register: source_files
+      when: yes
+
+    - name: Add source to all source files in bashrc
+      lineinfile:
+        path: "{{ home_dir }}/.bashrc"
+        line: ". {{ item.path }}"
+      with_items: "{{source_files.files}}"
+      when: yes
+
+    - name: Disable login with password
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: '^PasswordAuthentication '
+        line: "PasswordAuthentication no"
+      become: yes
+      when: yes
+
+    - name: Replace /etc/apt/sources.list
+      template:
+        src: "{{ playbook_dir }}/sources_template.j2"
+        dest: "/etc/apt/sources.list"
+        backup: yes
+      become: yes
+
+    - name: Update Packages
+      apt:
+        update_cache: yes
+        upgrade: "dist"
+      become: yes
+      when: yes
+
+    - name: Install Basic Packages
+      apt:
+        name: [
+          apt-transport-https,
+          ca-certificates,
+          curl,
+          gnupg-agent,
+          software-properties-common,
+          apt-utils
+        ]
+      become: yes
+      when: yes
+
+    - name: Add Docker Repo Key
+      shell: >
+        sudo rm /usr/share/keyrings/docker-archive-keyring.gpg;
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg 
+        | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      args:
+        warn: no
+      become: yes
+      when: yes
+
+    - name: Add Docker Repo
+      shell: >
+        echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] 
+        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" 
+        | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      become: yes
+      when: yes
+
+    - name: Add PostgreSQL Repository
+      shell: >
+        sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list';
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+      args:
+        warn: no
+
+    - name: Install Packages
+      apt:
+        update_cache: yes
+        name: "{{ apt_list }}"
+      become: yes
+      # when: yes
+    
+    - name: Reboot
+      reboot:
+      become: yes
+      # when: yes
+      
+    - name: Debug
+      debug:
+        msg: "{{ apt_list }}"
+        # msg: "{{ rc_files[0] }}"
