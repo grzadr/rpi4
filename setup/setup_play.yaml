@@ -1,44 +1,56 @@
 ---
 - hosts: all
-  name: Basic Raspberry Pi setup
+  name: Basic Raspberry Pi Setup
   tasks:
-    - name: Set up baisc facts
+    - name: Set up basic facts
       set_fact:
         home_dir: "{{ ansible_env['HOME'] }}"
         distro: "{{ ansible_distribution_release }}"
-    
+        enabled: yes
+
     - name: Read list of files to install with apt
       set_fact:
         apt_list: "{{ item.split('\n') }}"
       with_file: "{{ playbook_dir }}/apt.list"
-    
+
+    - name: Read list of files to install with pip
+      set_fact:
+        pip_list: "{{ item.split('\n') }}"
+      with_file: "{{ playbook_dir }}/pip.list"
+
+    - name: Set Local Timezone
+      shell: >
+        timedatectl set-timezone Europe/Warsaw
+      become: yes
+      when: enabled
+
     - name: Copy rc files
       copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
       with_fileglob: "{{ playbook_dir }}/configs/*rc"
-      when: yes
+      when: enabled
 
     - name: Copy bash source files
       copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
       with_fileglob: "{{ playbook_dir }}/configs/source*"
-      when: yes
+      when: enabled
 
-    - name: Find file to add to .bashrc
+    - name: Find Files to Add to .bashrc
       find:
         path: "{{ home_dir }}"
         pattern: "source_*"
       register: source_files
-      when: yes
+      when: enabled
 
     - name: Add source to all source files in bashrc
       lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: ". {{ item.path }}"
       with_items: "{{source_files.files}}"
-      when: yes
+      when: enabled
 
     - name: Disable login with password
       lineinfile:
@@ -46,7 +58,7 @@
         regexp: '^PasswordAuthentication '
         line: "PasswordAuthentication no"
       become: yes
-      when: yes
+      when: enabled
 
     - name: Replace /etc/apt/sources.list
       template:
@@ -54,13 +66,14 @@
         dest: "/etc/apt/sources.list"
         backup: yes
       become: yes
+      when: enabled
 
     - name: Update Packages
       apt:
         update_cache: yes
         upgrade: "dist"
       become: yes
-      when: yes
+      when: enabled
 
     - name: Install Basic Packages
       apt:
@@ -73,7 +86,7 @@
           apt-utils
         ]
       become: yes
-      when: yes
+      when: enabled
 
     - name: Add Docker Repo Key
       shell: >
@@ -83,7 +96,7 @@
       args:
         warn: no
       become: yes
-      when: yes
+      when: enabled
 
     - name: Add Docker Repo
       shell: >
@@ -91,7 +104,7 @@
         https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" 
         | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
       become: yes
-      when: yes
+      when: enabled
 
     - name: Add PostgreSQL Repository
       shell: >
@@ -99,19 +112,35 @@
         wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
       args:
         warn: no
+      when: enabled
 
-    - name: Install Packages
+    - name: Install APT Packages
       apt:
         update_cache: yes
         name: "{{ apt_list }}"
       become: yes
-      # when: yes
-    
+      when: enabled
+
+    - name: Add User to Docker Group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      become: yes
+      when: enabled
+
+    - name: Install PiP Packages
+      pip:
+        name: "{{ pip_list }}"
+        executable: "pip3"
+      become: yes
+      when: enabled
+
     - name: Reboot
       reboot:
       become: yes
-      # when: yes
-      
+      when: enabled
+
     - name: Debug
       debug:
         msg: "{{ apt_list }}"
