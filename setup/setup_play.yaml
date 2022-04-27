@@ -6,7 +6,7 @@
       set_fact:
         home_dir: "{{ ansible_env['HOME'] }}"
         distro: "{{ ansible_distribution_release }}"
-        enabled: yes
+        enabled: no
 
     - name: Read list of files to install with apt
       set_fact:
@@ -38,6 +38,21 @@
       with_fileglob: "{{ playbook_dir }}/configs/source*"
       when: enabled
 
+    - name: Create Secrets Directory
+      ansible.builtin.file:
+        path: "{{ home_dir }}/secrets"
+        state: directory
+        mode: '0700'
+      when: enabled
+
+    - name: Copy Secrets
+      copy:
+        src: "{{ item }}"
+        dest: "{{ home_dir }}/secrets/"
+        mode: '0600'
+      with_fileglob: "{{ playbook_dir}}/secrets/*"
+      when: enabled
+
     - name: Find Files to Add to .bashrc
       find:
         path: "{{ home_dir }}"
@@ -50,6 +65,12 @@
         path: "{{ home_dir }}/.bashrc"
         line: ". {{ item.path }}"
       with_items: "{{source_files.files}}"
+      when: enabled
+
+    - name: Export GH_TOKEN is .bashrc
+      lineinfile:
+        path: "{{ home_dir }}/.bashrc"
+        line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
       when: enabled
 
     - name: Disable login with password
@@ -112,7 +133,27 @@
         wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
       args:
         warn: no
+      become: yes
       when: no
+
+    - name: Add gh Repo Key
+      shell: >
+        sudo rm /usr/share/keyrings/githubcli-archive-keyring.gpg;
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg 
+        | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+      args:
+        warn: no
+      become: yes
+      when: enabled
+    
+    - name: Add gh Repo
+      shell: >
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" 
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+      args:
+        warn: no
+      become: yes
+      when: enabled
 
     - name: Install APT Packages
       apt:
