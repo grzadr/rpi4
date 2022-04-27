@@ -9,7 +9,7 @@ less
 build-essential
 libsqlite3-dev
 sqlite3
-postgresql-client-13
+postgresql-client-14
 gawk
 mawk
 git
@@ -25,3 +25,4 @@ python3-venv
 docker-ce
 docker-ce-cli
 containerd.io
+software-properties-common
