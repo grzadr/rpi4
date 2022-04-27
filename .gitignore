@@ -354,3 +354,6 @@ inventory.yaml
 
 # VSCode directory
 .vscode
+
+# Secrets directory
+setup/secrets
