@@ -6,7 +6,7 @@
       set_fact:
         home_dir: "{{ ansible_env['HOME'] }}"
         distro: "{{ ansible_distribution_release }}"
-        enabled: no
+        enabled: yes
 
     - name: Read list of files to install with apt
       set_fact:
@@ -51,7 +51,7 @@
         dest: "{{ home_dir }}/secrets/"
         mode: '0600'
       with_fileglob: "{{ playbook_dir}}/secrets/*"
-      when: enabled
+      when: no
 
     - name: Find Files to Add to .bashrc
       find:
@@ -71,7 +71,7 @@
       lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
-      when: enabled
+      when: no
 
     - name: Disable login with password
       lineinfile:
@@ -79,7 +79,7 @@
         regexp: '^PasswordAuthentication '
         line: "PasswordAuthentication no"
       become: yes
-      when: enabled
+      when: no
 
     - name: Replace /etc/apt/sources.list
       template:
@@ -134,7 +134,7 @@
       args:
         warn: no
       become: yes
-      when: no
+      when: yes
 
     - name: Add gh Repo Key
       shell: >
@@ -144,7 +144,7 @@
       args:
         warn: no
       become: yes
-      when: enabled
+      when: no
     
     - name: Add gh Repo
       shell: >
@@ -153,7 +153,7 @@
       args:
         warn: no
       become: yes
-      when: enabled
+      when: no
 
     - name: Install APT Packages
       apt:
