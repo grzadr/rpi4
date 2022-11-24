@@ -2,5 +2,5 @@
 	path = setup/configs
 	url = git@github.com:grzadr/linux_configs.git
 [submodule "config"]
-	path = config
+	path = setup/config
 	url = git@github.com:grzadr/configs.git

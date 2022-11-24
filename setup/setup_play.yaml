@@ -28,14 +28,14 @@
       copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
-      with_fileglob: "{{ playbook_dir }}/configs/*rc"
+      with_fileglob: "{{ playbook_dir }}/config/rc/*"
       when: enabled
 
     - name: Copy bash source files
       copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
-      with_fileglob: "{{ playbook_dir }}/configs/source*"
+      with_fileglob: "{{ playbook_dir }}/configs/source/*"
       when: enabled
 
     - name: Create Secrets Directory
@@ -111,9 +111,9 @@
 
     - name: Add Docker Repo Key
       shell: >
-        sudo rm /usr/share/keyrings/docker-archive-keyring.gpg;
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg 
-        | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        sudo mkdir -p /etc/apt/keyrings;
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg
+        | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
       args:
         warn: no
       become: yes
@@ -121,8 +121,8 @@
 
     - name: Add Docker Repo
       shell: >
-        echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] 
-        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" 
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg]
+        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
         | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
       become: yes
       when: enabled
@@ -134,21 +134,21 @@
       args:
         warn: no
       become: yes
-      when: yes
+      when: enabled
 
     - name: Add gh Repo Key
       shell: >
         sudo rm /usr/share/keyrings/githubcli-archive-keyring.gpg;
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg 
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg
         | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
       args:
         warn: no
       become: yes
       when: no
-    
+
     - name: Add gh Repo
       shell: >
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" 
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
       args:
         warn: no
