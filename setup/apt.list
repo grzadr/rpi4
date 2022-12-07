@@ -25,6 +25,7 @@ python3-venv
 software-properties-common
 sqlite3
 tree
+qbittorrent-nox
 vim
 vim-doc
 vim-scripts

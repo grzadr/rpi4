@@ -3,44 +3,46 @@
   name: Basic Raspberry Pi Setup
   tasks:
     - name: Set up basic facts
-      set_fact:
+      ansible.builtin.set_fact:
         home_dir: "{{ ansible_env['HOME'] }}"
         distro: "{{ ansible_distribution_release }}"
         smb_user: "bkuser"
-        enabled: yes
+        enabled: true
 
     - name: Read list of files to install with apt
-      set_fact:
+      ansible.builtin.set_fact:
         apt_list: "{{ item.split('\n') }}"
       with_file: "{{ playbook_dir }}/apt.list"
 
     - name: Read list of files to install with pip
-      set_fact:
+      ansible.builtin.set_fact:
         pip_list: "{{ item.split('\n') }}"
       with_file: "{{ playbook_dir }}/pip.list"
 
     - name: Read smb password
-      set_fact:
+      ansible.builtin.set_fact:
         smb_password: "{{ item }}"
       with_file: "{{ playbook_dir }}/secrets/smbpasswd"
 
     - name: Set Local Timezone
       ansible.builtin.shell: |
         timedatectl set-timezone Europe/Warsaw
-      become: yes
+      become: true
       when: enabled
 
     - name: Copy rc files
-      copy:
+      ansible.builtin.copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
+        mode: '0644'
       with_fileglob: "{{ playbook_dir }}/config/rc/*"
       when: enabled
 
     - name: Copy bash source files
-      copy:
+      ansible.builtin.copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/"
+        mode: '0644'
       with_fileglob: "{{ playbook_dir }}/config/source/*"
       when: enabled
 
@@ -52,15 +54,15 @@
       when: enabled
 
     - name: Copy Secrets
-      copy:
+      ansible.builtin.copy:
         src: "{{ item }}"
         dest: "{{ home_dir }}/secrets/"
         mode: '0600'
-      with_fileglob: "{{ playbook_dir}}/secrets/*"
-      when: no
+      with_fileglob: "{{ playbook_dir }}/secrets/*"
+      when: true
 
     - name: Find Files to Add to .bashrc
-      find:
+      ansible.builtin.find:
         path: "{{ home_dir }}"
         pattern: "source_*"
       register: source_files
@@ -70,40 +72,41 @@
       ansible.builtin.lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: ". {{ item.path }}"
-      with_items: "{{source_files.files}}"
+      with_items: "{{ source_files.files }}"
       when: enabled
 
     - name: Export GH_TOKEN is .bashrc
       ansible.builtin.lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
-      when: no
+      when: true
 
     - name: Disable login with password
       ansible.builtin.lineinfile:
         path: "/etc/ssh/sshd_config"
         regexp: '^PasswordAuthentication '
         line: "PasswordAuthentication no"
-      become: yes
-      when: no
+      become: true
+      when: enabled
 
     - name: Replace /etc/apt/sources.list
-      template:
+      ansible.builtin.template:
         src: "{{ playbook_dir }}/sources_template.j2"
         dest: "/etc/apt/sources.list"
-        backup: yes
-      become: yes
+        backup: true
+        mode: '0644'
+      become: true
       when: enabled
 
     - name: Update Packages
-      apt:
-        update_cache: yes
+      ansible.builtin.apt:
+        update_cache: true
         upgrade: "dist"
-      become: yes
+      become: true
       when: enabled
 
     - name: Install Basic Packages
-      apt:
+      ansible.builtin.apt:
         name: [
           apt-transport-https,
           ca-certificates,
@@ -112,68 +115,79 @@
           software-properties-common,
           apt-utils
         ]
-      become: yes
+      become: true
       when: enabled
 
     - name: Add Docker Repo Key
       ansible.builtin.shell: |
+        set -o pipefail
         sudo rm -f /etc/apt/keyrings/docker.gpg;
         sudo mkdir -p /etc/apt/keyrings;
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
         | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-      become: yes
+      become: true
       when: enabled
 
     - name: Add Docker Repo
       ansible.builtin.shell: |
+        set -o pipefail
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
         https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
         | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-      become: yes
+      become: true
       when: enabled
 
     - name: Add PostgreSQL Repository
       ansible.builtin.shell: |
+        set -o pipefail
         sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list';
         wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-      become: yes
+      become: true
       when: enabled
 
     - name: Add gh Repo Key
       ansible.builtin.shell: |
+        set -o pipefail
         sudo rm /usr/share/keyrings/githubcli-archive-keyring.gpg;
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-      become: yes
+      become: true
       when: enabled
 
     - name: Add gh Repo
       ansible.builtin.shell: |
+        set -o pipefail
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-      become: yes
+      become: true
+      when: enabled
+
+    - name: Add qBittorrent Repo
+      ansible.builtin.apt_repository:
+        repo: ppa:qbittorrent-team/qbittorrent-stable
+      become: true
       when: enabled
 
     - name: Install APT Packages
-      apt:
-        update_cache: yes
+      ansible.builtin.apt:
+        update_cache: true
         name: "{{ apt_list }}"
-      become: yes
+      become: true
       when: enabled
 
     - name: Add User to Docker Group
-      user:
+      ansible.builtin.user:
         name: "{{ ansible_user }}"
         groups: docker
-        append: yes
-      become: yes
+        append: true
+      become: true
       when: enabled
 
     - name: Install PiP Packages
-      pip:
+      ansible.builtin.pip:
         name: "{{ pip_list }}"
         executable: "pip3"
-      become: yes
+      become: true
       when: enabled
 
     - name: Create Secrets Directory
@@ -181,14 +195,14 @@
         path: "/mnt/bk"
         state: directory
         mode: '0777'
-      become: yes
+      become: true
       when: enabled
 
     - name: Add mount to Seagate
       ansible.builtin.lineinfile:
         path: "/etc/fstab"
         line: "UUID=5B5DDCFA0CCCCA80 /mnt/bk ntfs defaults 0 0"
-      become: yes
+      become: true
       when: enabled
 
     - name: Add samba config
@@ -199,30 +213,30 @@
               comment = Samba on Ubuntu
               path = /mnt/bk
               read only = no
-              browsable = yes
-      become: yes
+              browsable = true
+      become: true
       when: enabled
 
     - name: Restart SAMBA
       ansible.builtin.systemd:
         state: restarted
-        daemon_reload: yes
+        daemon_reload: true
         name: smbd
-      become: yes
+      become: true
       when: enabled
 
     - name: Allow SAMBA in Firewall
       ansible.builtin.shell: |
         ufw allow samba
-      become: yes
+      become: true
       when: enabled
 
     - name: Add SAMBA user
       ansible.builtin.user:
         name: "{{ smb_user }}"
-        create_home: no
+        create_home: false
         password: '*'
-      become: yes
+      become: true
       when: enabled
 
     - name: Set SAMBA password
@@ -231,16 +245,16 @@
         smbpasswd -a -s {{ smb_user }}
       args:
         stdin: "{{ smb_password }}"
-        stdin_add_newline: yes
-      become: yes
+        stdin_add_newline: true
+      become: true
       when: enabled
 
     - name: Reboot
-      reboot:
-      become: yes
+      ansible.builtin.reboot:
+      become: true
       when: enabled
 
     - name: Debug
-      debug:
+      ansible.builtin.debug:
         msg: "{{ apt_list }}"
         # msg: "{{ rc_files[0] }}"
