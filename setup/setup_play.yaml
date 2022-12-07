@@ -6,6 +6,7 @@
       set_fact:
         home_dir: "{{ ansible_env['HOME'] }}"
         distro: "{{ ansible_distribution_release }}"
+        smb_user: "bkuser"
         enabled: yes
 
     - name: Read list of files to install with apt
@@ -18,8 +19,13 @@
         pip_list: "{{ item.split('\n') }}"
       with_file: "{{ playbook_dir }}/pip.list"
 
+    - name: Read smb password
+      set_fact:
+        smb_password: "{{ item }}"
+      with_file: "{{ playbook_dir }}/secrets/smbpasswd"
+
     - name: Set Local Timezone
-      shell: >
+      ansible.builtin.shell: |
         timedatectl set-timezone Europe/Warsaw
       become: yes
       when: enabled
@@ -61,20 +67,20 @@
       when: enabled
 
     - name: Add source to all source files in bashrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: ". {{ item.path }}"
       with_items: "{{source_files.files}}"
       when: enabled
 
     - name: Export GH_TOKEN is .bashrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "{{ home_dir }}/.bashrc"
         line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
       when: no
 
     - name: Disable login with password
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "/etc/ssh/sshd_config"
         regexp: '^PasswordAuthentication '
         line: "PasswordAuthentication no"
@@ -127,7 +133,7 @@
       when: enabled
 
     - name: Add PostgreSQL Repository
-      shell: >
+      ansible.builtin.shell: |
         sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list';
         wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
       become: yes
@@ -167,6 +173,65 @@
       pip:
         name: "{{ pip_list }}"
         executable: "pip3"
+      become: yes
+      when: enabled
+
+    - name: Create Secrets Directory
+      ansible.builtin.file:
+        path: "/mnt/bk"
+        state: directory
+        mode: '0777'
+      become: yes
+      when: enabled
+
+    - name: Add mount to Seagate
+      ansible.builtin.lineinfile:
+        path: "/etc/fstab"
+        line: "UUID=5B5DDCFA0CCCCA80 /mnt/bk ntfs defaults 0 0"
+      become: yes
+      when: enabled
+
+    - name: Add samba config
+      ansible.builtin.blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [sambashare]
+              comment = Samba on Ubuntu
+              path = /mnt/bk
+              read only = no
+              browsable = yes
+      become: yes
+      when: enabled
+
+    - name: Restart SAMBA
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: yes
+        name: smbd
+      become: yes
+      when: enabled
+
+    - name: Allow SAMBA in Firewall
+      ansible.builtin.shell: |
+        ufw allow samba
+      become: yes
+      when: enabled
+
+    - name: Add SAMBA user
+      ansible.builtin.user:
+        name: "{{ smb_user }}"
+        create_home: no
+        password: '*'
+      become: yes
+      when: enabled
+
+    - name: Set SAMBA password
+      ansible.builtin.shell: |
+        smbpasswd -x {{ smb_user }} || true;
+        smbpasswd -a -s {{ smb_user }}
+      args:
+        stdin: "{{ smb_password }}"
+        stdin_add_newline: yes
       become: yes
       when: enabled
 
