@@ -28,8 +28,8 @@ qbittorrent-nox
 samba
 software-properties-common
 sqlite3
+terraform
 tree
 vim
 vim-doc
 vim-scripts
-terraform
