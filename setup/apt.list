@@ -3,8 +3,10 @@ clang-format
 cmake
 containerd.io
 cppcheck
+docker-buildx-plugin
 docker-ce
 docker-ce-cli
+docker-compose-plugin
 g++
 gawk
 gcc
@@ -25,9 +27,9 @@ python3-venv
 qbittorrent-nox
 samba
 software-properties-common
-speedtest
 sqlite3
 tree
 vim
 vim-doc
 vim-scripts
+terraform
