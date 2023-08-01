@@ -1,3 +1,4 @@
+
 build-essential
 clang-format
 cmake
@@ -7,6 +8,7 @@ docker-buildx-plugin
 docker-ce
 docker-ce-cli
 docker-compose-plugin
+fontconfig
 g++
 gawk
 gcc
@@ -19,6 +21,7 @@ man
 mawk
 nano
 ncdu
+neovim
 openvpn
 postgresql-client
 python3-pip

@@ -166,19 +166,6 @@
       become: true
       when: enabled
 
-    # - name: Add PostgreSQL Repository
-    #   ansible.builtin.shell: |
-    #     set -e -o pipefail
-    #     wget -O- https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor |\
-    #     sudo tee /usr/share/keyrings/postgres.gpg > /dev/null
-    #     sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/postgres.gpg] \
-    #     http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-    #     > /etc/apt/sources.list.d/pgdg.list';
-    #   args:
-    #     executable: /bin/bash
-    #   become: true
-    #   when: enabled
-
     # - name: Add gh Repo
     #   ansible.builtin.shell: |
     #     set -e -o pipefail
@@ -198,15 +185,11 @@
       become: true
       when: enabled
 
-    # - name: Add SpeedTest Repo
-    #   ansible.builtin.shell: |
-    #     set -e -o pipefail
-    #     curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh \
-    #     | sudo bash
-    #   args:
-    #     executable: /bin/bash
-    #   become: true
-    #   when: enabled
+    - name: Add Neovim Unstable Repo
+      ansible.builtin.apt_repository:
+        repo: ppa:neovim-ppa/unstable
+      become: true
+      when: enabled
 
     - name: Add Terraform Repo
       ansible.builtin.shell: |
@@ -245,7 +228,22 @@
     #     name: "{{ pip_list }}"
     #     executable: "pip3"
     #   become: true
-    #   when: enabled
+    #   when: enable
+    
+    - name: Add gh Repo
+      ansible.builtin.shell: |
+        set -eux
+        set -o pipefail
+        curl -sS https://raw.githubusercontent.com/diogocavilha/fancy-git/master/install.sh | sh
+        fancygit --theme-simple
+        fancygit --disable-time
+        fancygit --enable-double-line
+        fancygit --enable-bold-prompt
+        fancygit --disable-rich-notification
+      args:
+        executable: /bin/bash
+      become: true
+      when: enabled
 
     - name: Create Secrets Directory
       ansible.builtin.file:
