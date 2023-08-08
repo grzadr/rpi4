@@ -284,6 +284,16 @@
       become: false
       when: enabled
 
+    - name: Install rust
+      ansible.builtin.shell: |
+        set -e
+        set -o pipefail
+        url --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile complete
+      args:
+        executable: /bin/bash
+      become: false
+      when: enabled
+
     - name: Create Secrets Directory
       ansible.builtin.file:
         path: "/mnt/bk"
