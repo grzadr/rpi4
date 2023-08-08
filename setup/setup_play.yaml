@@ -288,7 +288,7 @@
       ansible.builtin.shell: |
         set -e
         set -o pipefail
-        url --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile complete
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile complete
       args:
         executable: /bin/bash
       become: false
@@ -367,11 +367,37 @@
       become: true
       when: enabled
 
+    - name: Check Mount /mnt/bk
+      ansible.builtin.shell: |
+        ls /mnt/bk
+      args:
+        executable: /bin/bash
+      become: false
+      when: enabled
+
     - name: Check Docker
       ansible.builtin.shell: |
         docker run hello-world
+        docker compose version
       args:
         executable: /bin/bash
+      become: false
+      when: enabled
+
+    - name: Check rust
+      ansible.builtin.shell: |
+        ~/.cargo/bin/cargo -V && ~/.cargo/bin/rustc -V
+      args:
+        executable: /bin/bash
+      become: false
+      when: enabled
+
+    - name: Check Hashicorp Software
+      ansible.builtin.shell: |
+        terraform -v && vagrant -v
+      args:
+        executable: /bin/bash
+      become: false
       when: enabled
 
     # - name: Debug
