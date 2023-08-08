@@ -1,4 +1,3 @@
-
 build-essential
 clang-format
 cmake
@@ -14,6 +13,7 @@ gawk
 gcc
 gh
 git
+kubectl
 less
 libsqlite3-dev
 make
@@ -33,6 +33,7 @@ software-properties-common
 sqlite3
 terraform
 tree
+vagrant
 vim
 vim-doc
 vim-scripts

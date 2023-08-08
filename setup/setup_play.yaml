@@ -56,25 +56,45 @@
         mode: '0700'
       when: enabled
 
-    # - name: Copy SSH Private Key
-    #   ansible.builtin.copy:
-    #     src: "{{ playbook_dir }}/secrets/ssh_keys/id_ed25519"
-    #     dest: "/home/pi/.ssh/id_ed25519"
-    #     mode: '0600'
-    #     owner: 'pi'
-    #     group: 'pi'
-    #   become: true
-    #   when: enabled
+    - name: Copy SSH Private Key
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/secrets/ssh/id_rsa"
+        dest: "~/.ssh/id_rsa"
+        mode: '0600'
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
+      become: true
+      when: enabled
 
-    # - name: Copy SSH Public Key
-    #   ansible.builtin.copy:
-    #     src: "{{ playbook_dir }}/secrets/ssh_keys/id_ed25519.pub"
-    #     dest: "/home/pi/.ssh/id_ed25519.pub"
-    #     mode: '0644'
-    #     owner: 'pi'
-    #     group: 'pi'
-    #   become: true
-    #   when: enabled
+    - name: Copy SSH Authorized Keys
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/secrets/ssh/authorized_keys"
+        dest: "~/.ssh/authorized_keys"
+        mode: '0600'
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
+      become: true
+      when: enabled
+
+    - name: Copy SSH Known Hosts
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/secrets/ssh/known_hosts"
+        dest: "~/.ssh/known_hosts"
+        mode: '0600'
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
+      become: true
+      when: enabled
+
+    - name: Copy SSH Public Key
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/secrets/ssh/id_rsa.pub"
+        dest: "~/.ssh/id_rsa.pub"
+        mode: '0644'
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
+      become: true
+      when: enabled
 
     - name: Add GitHub as known_host
       ansible.builtin.shell: |
@@ -82,15 +102,6 @@
       args:
         executable: /bin/bash
       when: enabled
-
-    # - name: Copy OpenVPN config
-    #   ansible.builtin.copy:
-    #     src: "{{ item }}"
-    #     dest: "/etc/openvpn/"
-    #     mode: '0400'
-    #   with_fileglob: "{{ playbook_dir }}/secrets/ovpn/*"
-    #   become: true
-    #   when: enabled
 
     - name: Find Files to Add to .bashrc
       ansible.builtin.find:
@@ -106,11 +117,11 @@
       with_items: "{{ source_files.files }}"
       when: enabled
 
-    # - name: Export GH_TOKEN is .bashrc
-    #   ansible.builtin.lineinfile:
-    #     path: "{{ home_dir }}/.bashrc"
-    #     line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
-    #   when: true
+    - name: Export GH_TOKEN is .bashrc
+      ansible.builtin.lineinfile:
+        path: "{{ home_dir }}/.bashrc"
+        line: "export GH_TOKEN=$(cat ~/secrets/github.token)"
+      when: enabled
 
     - name: Disable login with password
       ansible.builtin.lineinfile:
@@ -166,18 +177,19 @@
       become: true
       when: enabled
 
-    # - name: Add gh Repo
-    #   ansible.builtin.shell: |
-    #     set -e -o pipefail
-    #     rm -f /usr/share/keyrings/githubcli-archive-keyring.gpg;
-    #     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    #     | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-    #     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    #     | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-    #   args:
-    #     executable: /bin/bash
-    #   become: true
-    #   when: enabled
+    - name: Add gh Repo
+      ansible.builtin.shell: |
+        set -e -o pipefail
+        KEYRING=/etc/apt/keyrings/githubcli-archive-keyring.gpg
+        sudo rm -f $KEYRING;
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | sudo dd of=$KEYRING
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=$KEYRING] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+      args:
+        executable: /bin/bash
+      become: true
+      when: enabled
 
     - name: Add qBittorrent Repo
       ansible.builtin.apt_repository:
@@ -198,11 +210,36 @@
         sudo install -m 0755 -d /etc/apt/keyrings
         wget -O- https://apt.releases.hashicorp.com/gpg | \
         gpg --dearmor | \
-        sudo tee /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+        sudo tee /etc/apt/keyrings/hashicorp-archive-keyring.gpg > /dev/null
         echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] \
         https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
         sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+      args:
+        executable: /bin/bash
+      become: true
+      when: enabled
 
+    - name: Add Vagrant Repo
+      ansible.builtin.shell: |
+        set -e -o pipefail
+        KEYRING=/etc/apt/keyrings/hashicorp-archive-keyring.gpg
+        sudo rm -f $KEYRING;
+        sudo install -m 0755 -d /etc/apt/keyrings
+        wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o $KEYRING
+        echo "deb [signed-by=$KEYRING] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+      args:
+        executable: /bin/bash
+      become: true
+      when: enabled
+
+    - name: Add kubectl Repo
+      ansible.builtin.shell: |
+        set -eux
+        set -o pipefail
+        KEYRING=/etc/apt/keyrings/kubernetes-archive-keyring.gpg
+        sudo rm -f $KEYRING;
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o $KEYRING
+        echo "deb [signed-by=$KEYRING] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
       args:
         executable: /bin/bash
       become: true
@@ -230,19 +267,21 @@
     #   become: true
     #   when: enable
     
-    - name: Add gh Repo
+    - name: Install fancygit
       ansible.builtin.shell: |
         set -eux
         set -o pipefail
+        rm -rf $HOME/.fancy-git
+        # curl -sS https://raw.githubusercontent.com/diogocavilha/fancy-git/master/uninstall.sh | sh
         curl -sS https://raw.githubusercontent.com/diogocavilha/fancy-git/master/install.sh | sh
-        fancygit --theme-simple
-        fancygit --disable-time
-        fancygit --enable-double-line
-        fancygit --enable-bold-prompt
-        fancygit --disable-rich-notification
+        sh ~/.fancy-git/commands-handler.sh --theme-simple
+        sh ~/.fancy-git/commands-handler.sh --disable-time
+        sh ~/.fancy-git/commands-handler.sh --enable-double-line
+        sh ~/.fancy-git/commands-handler.sh --enable-bold-prompt
+        sh ~/.fancy-git/commands-handler.sh --disable-rich-notification
       args:
         executable: /bin/bash
-      become: true
+      become: false
       when: enabled
 
     - name: Create Secrets Directory
@@ -312,15 +351,6 @@
         executable: /bin/bash
       become: true
       when: enabled
-
-    # - name: Enable OpenVPN
-    #   ansible.builtin.systemd:
-    #     name: openvpn@vpnclient.service
-    #     state: restarted
-    #     enabled: true
-    #     masked: false
-    #   become: true
-    #   when: enabled
 
     - name: Reboot
       ansible.builtin.reboot:
